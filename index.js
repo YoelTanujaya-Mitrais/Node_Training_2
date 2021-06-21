@@ -18,52 +18,45 @@ var results = fs.readFile('./person.json', function (err, data) {
     results = JSON.parse(data);
 });
 
-function addData(name, age, address) {
-    fs.readFile('person.json', 'utf-8', (err, data) => {
-        if (err) {
-            console.log(err)
-        } else {
-            var object = JSON.parse(data)
-            object.push({
-                id: Object.keys(object).length+1,
-                name: name,
-                age: age,
-                address: address,
-            })
-            var json = JSON.stringify(object)
-            fs.writeFile('./person.json', json, 'utf-8', callbackify)
-        }
-    })
-}
-
-
+app.use('/', function log(req, res, next) {
+    console.log('Execute Time: ', Date.now())
+    console.log('Path: ', req.path)
+    console.log('Method: ', req.method)
+    next()
+})
 
 app.get('/findAll', (req, res) => {
-    res.writeHead(200, {'Content-Type': 'application/json'});
-    res.end(JSON.stringify(results));
-})
-
-app.get('/search', (req, res) => {
-    var pattern = req.query.q.toLowerCase().split("").map((x)=>{
-        return `(?=.*${x})`
-    }).join("");
-    var regex = new RegExp(`${pattern}`, "g")
-    var filtered = results.filter( e => 
-        e.name.toLowerCase().match(regex) ||
-        e.address.toLowerCase().match(regex) ||
-        e.age.toString().toLowerCase().match(regex)
-    );
-    if (filtered == null) {
-        res.writeHead(404);
-        res.end(`Object Not Found`)
+    var endResults = ''
+    if (req.query.q == null) {
+        if (results == null) {
+            res.writeHead(404);
+            endResults = 'Object Not Found'
+        } else {
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            endResults = JSON.stringify(results)
+        }
     } else {
-        res.writeHead(200, {'Content-Type': 'application/json'});
-        res.end(JSON.stringify(filtered));
+        var pattern = req.query.q.toLowerCase().split("").map((x)=>{
+            return `(?=.*${x})`
+        }).join("");
+        var regex = new RegExp(`${pattern}`, "g")
+        var filtered = results.filter( e => 
+            e.name.toLowerCase().match(regex) ||
+            e.age.toString().toLowerCase().match(regex)
+        );
+        if (filtered == null) {
+            res.writeHead(404);
+            endResults = 'Object Not Found'
+        } else {
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            endResults = JSON.stringify(filtered)
+        }
     }
+    res.end(endResults);
 })
 
-app.get('/findOne/:id', (req, res) => {
-    var selectedObj = results.find(person => person.id == req.params.id)
+app.get('/findOne', (req, res) => {
+    var selectedObj = results.find(person => person.id == req.query.id)
     if (selectedObj == null) {
         res.writeHead(404);
         res.end(`Object Not Found`)
@@ -72,7 +65,6 @@ app.get('/findOne/:id', (req, res) => {
         res.end(JSON.stringify(selectedObj));
     }
 })
-
 
 app.post('/create', (req, res) => {
     fs.readFile('person.json', 'utf8', function (err, data){
@@ -123,14 +115,9 @@ app.delete('/delete/:id', (req, res) => {
     });
 })
 
-// app.use('/', function log(req, res) {
-//     console.log('Path: ', req.path)
-//     console.log('Method: ',)
-// })
-
-app.all('/', function (req, res) {
-    console.log('Execute Time: ', Date.now())
-})
+app.use((req, res, next) => {
+    return res.status(404).send({ message: "404: Page Not Found" });
+});
 
 app.listen(port, () => {
     console.log(`Listening at ${port}`)
